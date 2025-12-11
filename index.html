@@ -1,30 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NE Scanner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 16px;
-    }
-    button {
-      background: #06C755;
-      color: white;
-      font-weight: bold;
-      border: none;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    input, button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; }
+    button { background: #06c755; color: white; border: none; border-radius: 6px; }
   </style>
 </head>
 
@@ -32,66 +18,69 @@
   <h2>NE Scanner</h2>
 
   <label>Barcode</label>
-  <input id="barcode" placeholder="Scan barcode" />
+  <input id="barcode" placeholder="Scan barcode" readonly />
+
+  <button onclick="scanBarcode()">สแกนบาร์โค้ด</button>
 
   <label>Qty</label>
-  <input id="qty" placeholder="Quantity" />
+  <input id="qty" placeholder="Quantity" type="number" />
 
   <label>EXP</label>
-  <input id="exp" placeholder="12.12.26" />
+  <input id="exp" placeholder="เช่น 12.12.26" />
 
-  <button id="sendBtn">ส่งข้อมูลไป LINE</button>
-  <button id="scanBtn">สแกนบาร์โค้ด</button>
+  <button onclick="submitToN8N()">ส่งข้อมูลไป LINE</button>
 
-<script>
-  const liffId = "2008669852-4EpVRZNo"; // <-- ใส่ LIFF ID ของมึงแล้ว
+  <script>
+    const LIFF_ID = "2008669852-4EpVRZNo"; // <<--- ของมึง
 
-  async function main() {
-    await liff.init({ liffId });
-
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
-    }
-
-    document.getElementById("sendBtn").onclick = sendToLine;
-    document.getElementById("scanBtn").onclick = scanBarcode;
-  }
-
-  async function scanBarcode() {
-    try {
-      const result = await liff.scanCode();
-      document.getElementById("barcode").value = result.value;
-    } catch (err) {
-      alert("ไม่สามารถเปิดกล้องได้: " + err);
-    }
-  }
-
-  function sendToLine() {
-    const barcode = document.getElementById("barcode").value;
-    const qty = document.getElementById("qty").value;
-    const exp = document.getElementById("exp").value;
-
-    if (!barcode || !qty || !exp) {
-      alert("กรอกข้อมูลให้ครบก่อนส่งครับ");
-      return;
-    }
-
-    liff.sendMessages([
-      {
-        type: "text",
-        text: `Barcode: ${barcode}\nQty: ${qty}\nEXP: ${exp}`
+    // 1) INITIALIZE LIFF
+    async function main() {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
       }
-    ])
-    .then(() => {
-      alert("ส่งข้อมูลไป LINE เรียบร้อย");
-      liff.closeWindow();
-    })
-    .catch(err => alert("ส่งไม่สำเร็จ: " + err));
-  }
+    }
+    main();
 
-  main();
-</script>
+    // 2) เปิดกล้องสแกน QR/Barcode
+    async function scanBarcode() {
+      try {
+        const result = await liff.scanCodeV2();
+        document.getElementById("barcode").value = result.value;
+      } catch (err) {
+        alert("ไม่สามารถสแกนได้: " + err.message);
+      }
+    }
 
+    // 3) ส่งข้อมูลเข้า n8n
+    async function submitToN8N() {
+      const barcode = document.getElementById("barcode").value;
+      const qty = document.getElementById("qty").value;
+      const exp = document.getElementById("exp").value;
+
+      if (!barcode || !qty || !exp) {
+        alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+      }
+
+      try {
+        await fetch("https://n8n.srv1144130.hstgr.cloud/webhook/nearly-expired", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            barcode,
+            qty,
+            exp,
+            userId: liff.getContext().userId,
+            replyToken: liff.getContext().token
+          })
+        });
+
+        alert("ส่งข้อมูลสำเร็จ! รอข้อความตอบกลับจากระบบครับ");
+      } catch (err) {
+        alert("ส่งข้อมูลไม่สำเร็จ: " + err.message);
+      }
+    }
+  </script>
 </body>
 </html>
