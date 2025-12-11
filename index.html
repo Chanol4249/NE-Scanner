@@ -1,73 +1,131 @@
-<script>
-document.addEventListener("DOMContentLoaded", async () => {
-    const barcodeInput = document.getElementById("barcode");
-    const scanBtn = document.getElementById("scanBtn");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const uploadInput = document.getElementById("uploadInput");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NE Scanner</title>
 
-    // --- เปิดกล้องและอ่านบาร์โค้ด ---
-    scanBtn.addEventListener("click", async () => {
-        if (!("BarcodeDetector" in window)) {
-            alert("เครื่องนี้ไม่รองรับ Barcode Detector API");
-            return;
+    <!-- โหลด QuaggaJS สำหรับอ่านบาร์โค้ด -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 18px;
+            border-radius: 10px;
+            border: none;
+            background: green;
+            color: white;
         }
+        #scanner-container {
+            width: 100%;
+            height: 300px;
+            display: none;
+            margin-top: 20px;
+            background: black;
+        }
+    </style>
+</head>
 
-        try {
-            const detector = new BarcodeDetector({ formats: ["ean_13", "code_128", "upc_a"] });
+<body>
 
-            // เปิดกล้อง
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            const video = document.createElement("video");
-            video.srcObject = stream;
-            video.play();
+    <h2>📦 NE Scanner</h2>
 
-            // overlay UI
-            document.body.appendChild(video);
-            video.style.position = "fixed";
-            video.style.top = 0;
-            video.style.left = 0;
-            video.style.width = "100%";
-            video.style.height = "100%";
-            video.style.zIndex = 9999;
+    <!-- ช่องกรอก -->
+    <input id="barcode" placeholder="Barcode" style="width:100%; padding:10px; font-size:18px; margin-bottom:10px;">
 
-            const scanLoop = setInterval(async () => {
-                try {
-                    const barcodes = await detector.detect(video);
-                    if (barcodes.length > 0) {
-                        const code = barcodes[0].rawValue;
-                        barcodeInput.value = code;
+    <!-- ปุ่มสแกนกล้อง -->
+    <button id="scanBtn">📷 Scan Barcode</button>
 
-                        clearInterval(scanLoop);
-                        stream.getTracks().forEach(t => t.stop());
-                        video.remove();
+    <!-- ปุ่มอัพโหลดรูป -->
+    <button id="uploadBtn" style="background:#444;">🖼 Upload Barcode Image</button>
 
-                        alert("Scan สำเร็จ: " + code);
+    <!-- input file ซ่อน -->
+    <input id="uploadInput" type="file" accept="image/*" style="display:none;">
+
+    <!-- กล้อง -->
+    <div id="scanner-container">
+        <div id="scanner" style="width:100%; height:100%;"></div>
+    </div>
+
+    <!-- SCRIPT MAIN -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const barcodeInput = document.getElementById("barcode");
+            const scanBtn = document.getElementById("scanBtn");
+            const uploadBtn = document.getElementById("uploadBtn");
+            const uploadInput = document.getElementById("uploadInput");
+            const scannerContainer = document.getElementById("scanner-container");
+
+            // ===== สแกนด้วยกล้อง =====
+            scanBtn.addEventListener("click", () => {
+                scannerContainer.style.display = "block";
+
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: document.querySelector("#scanner"),
+                        constraints: { facingMode: "environment" }
+                    },
+                    decoder: {
+                        readers: ["ean_reader", "ean_13_reader", "upc_reader", "code_128_reader"]
                     }
-                } catch (e) {
-                    console.log("detecting…");
-                }
-            }, 200);
+                }, err => {
+                    if (err) {
+                        alert("เปิดกล้องไม่ได้");
+                        console.log(err);
+                        return;
+                    }
+                    Quagga.start();
+                });
 
-        } catch (error) {
-            console.error(error);
-            alert("เปิดกล้องไม่ได้ / ตรวจจับไม่ได้");
-        }
-    });
+                Quagga.onDetected(result => {
+                    if (!result.codeResult) return;
 
-    // --- อ่านบาร์โค้ดจากรูป ---
-    uploadBtn.addEventListener("click", () => uploadInput.click());
+                    const code = result.codeResult.code;
+                    barcodeInput.value = code;
+                    alert("✔ Scan สำเร็จ: " + code);
 
-    uploadInput.addEventListener("change", async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+                    Quagga.stop();
+                    scannerContainer.style.display = "none";
+                });
+            });
 
-        if (!("BarcodeDetector" in window)) {
-            alert("เครื่องนี้ไม่รองรับ Barcode Detector API");
-            return;
-        }
+            // ===== อัพโหลดรูป =====
+            uploadBtn.addEventListener("click", () => uploadInput.click());
 
-        const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        await img.decode();
+            uploadInput.addEventListener("change", event => {
+                const file = event.target.files[0];
+                if (!file) return;
 
-        const detector = new BarcodeDet
+                const reader = new FileReader();
+                reader.onload = function () {
+                    Quagga.decodeSingle({
+                        src: reader.result,
+                        numOfWorkers: 0,
+                        inputStream: { size: 800 },
+                        decoder: {
+                            readers: ["ean_reader", "ean_13_reader", "upc_reader", "code_128_reader"]
+                        }
+                    }, result => {
+                        if (result && result.codeResult) {
+                            const code = result.codeResult.code;
+                            barcodeInput.value = code;
+                            alert("✔ อ่านจากรูปสำเร็จ: " + code);
+                        } else {
+                            alert("❌ อ่านบาร์โค้ดจากรูปไม่ได้");
+                        }
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+
+        });
+    </script>
+
+</body>
+</html>
