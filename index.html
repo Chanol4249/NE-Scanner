@@ -8,13 +8,25 @@
 <!-- ZXing Barcode Reader -->
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 
+<!-- LIFF -->
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
 <style>
     body { font-family: sans-serif; padding: 20px; }
     input, button {
-        width: 100%; padding: 14px; margin-top: 10px; font-size: 18px;
+        width: 100%;
+        padding: 14px;
+        margin-top: 10px;
+        font-size: 18px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
     }
     #videoPreview {
-        width: 100%; margin-top: 20px; display: none; border: 2px solid #ccc;
+        width: 100%;
+        margin-top: 20px;
+        display: none;
+        border: 2px solid #ccc;
+        border-radius: 10px;
     }
 </style>
 </head>
@@ -34,24 +46,35 @@
 
 <button id="scanBtn">📸 เปิดกล้องสแกนบาร์โค้ด</button>
 <button id="uploadBtn">🖼 อัปโหลดรูปเพื่ออ่านบาร์โค้ด</button>
+<button id="sendBtn" style="background:#4CAF50; color:white;">📨 ส่งข้อมูลเข้า LINE OA</button>
+
 <input type="file" id="uploadInput" accept="image/*" style="display:none">
 
 <video id="videoPreview" autoplay playsinline></video>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+    /* ------------------------------------
+       INIT LIFF
+    ------------------------------------ */
+    await liff.init({ liffId: "2008669852-4EpVRZNo" });
 
     const barcodeInput = document.getElementById("barcode");
+    const qtyInput = document.getElementById("qty");
+    const expInput = document.getElementById("exp");
+
     const video = document.getElementById("videoPreview");
     const scanBtn = document.getElementById("scanBtn");
     const uploadBtn = document.getElementById("uploadBtn");
     const uploadInput = document.getElementById("uploadInput");
+    const sendBtn = document.getElementById("sendBtn");
 
     const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    // ---------------------------
-    // สแกนด้วยกล้อง
-    // ---------------------------
+    /* ------------------------------------
+       1) เปิดกล้อง + อ่านบาร์โค้ด
+    ------------------------------------ */
     scanBtn.addEventListener("click", async () => {
         video.style.display = "block";
 
@@ -65,9 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ---------------------------
-    // อัปโหลดรูป
-    // ---------------------------
+    /* ------------------------------------
+       2) อัปโหลดรูป + อ่านบาร์โค้ด
+    ------------------------------------ */
     uploadBtn.addEventListener("click", () => uploadInput.click());
 
     uploadInput.addEventListener("change", async (e) => {
@@ -81,6 +104,40 @@ document.addEventListener("DOMContentLoaded", () => {
             barcodeInput.value = result.text;
         } catch (err) {
             alert("อ่านบาร์โค้ดจากรูปไม่ได้");
+        }
+    });
+
+    /* ------------------------------------
+       3) ส่งข้อมูลเข้า LINE OA
+    ------------------------------------ */
+    sendBtn.addEventListener("click", async () => {
+        const barcode = barcodeInput.value.trim();
+        const qty = qtyInput.value.trim();
+        const exp = expInput.value.trim();
+
+        if (!barcode || !qty || !exp) {
+            alert("กรอกข้อมูลให้ครบก่อนส่ง");
+            return;
+        }
+
+        const message =
+            `barcode: ${barcode}\n` +
+            `qty: ${qty}\n` +
+            `exp: ${exp}`;
+
+        try {
+            await liff.sendMessages([
+                { type: "text", text: message }
+            ]);
+
+            alert("ส่งข้อมูลเรียบร้อยแล้ว 🎉");
+
+            barcodeInput.value = "";
+            qtyInput.value = "";
+            expInput.value = "";
+
+        } catch (err) {
+            alert("ส่งข้อมูลไม่สำเร็จ: " + err);
         }
     });
 
