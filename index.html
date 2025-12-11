@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>NE Scanner</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+      body { font-family: sans-serif; padding: 20px; }
+      input, button {
+        width: 100%; padding: 12px; margin-top: 10px; font-size: 16px;
+      }
+      button {
+        background: #06c755; color: white; border: none; border-radius: 8px;
+      }
+  </style>
+</head>
+<body>
+
+<h2>NE Scanner</h2>
+
+<label>Barcode</label>
+<input id="barcode" placeholder="เช่น 8851234567890">
+
+<label>Qty</label>
+<input id="qty" placeholder="เช่น 10">
+
+<label>EXP</label>
+<input id="exp" placeholder="เช่น 12.12.26">
+
+<button onclick="sendData()">ส่งข้อมูลไป LINE</button>
+
+<script>
+  async function sendData() {
+      const barcode = document.getElementById("barcode").value.trim();
+      const qty = document.getElementById("qty").value.trim();
+      const exp = document.getElementById("exp").value.trim();
+
+      if (!barcode || !qty || !exp) {
+          alert("กรุณากรอกข้อมูลให้ครบ");
+          return;
+      }
+
+      const message = `${barcode} qty ${qty} exp ${exp}`;
+
+      await liff.sendMessages([
+          { type: "text", text: message }
+      ]);
+
+      alert("ส่งข้อมูลสำเร็จ!");
+      liff.closeWindow();
+  }
+
+  async function main() {
+      await liff.init({ liffId: "2008669852-4EpVRZNo" }); 
+  }
+  main();
+</script>
+
+</body>
+</html>
