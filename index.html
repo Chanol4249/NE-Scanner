@@ -1,86 +1,73 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NE Scanner</title>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const barcodeInput = document.getElementById("barcode");
+    const scanBtn = document.getElementById("scanBtn");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const uploadInput = document.getElementById("uploadInput");
 
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    // --- เปิดกล้องและอ่านบาร์โค้ด ---
+    scanBtn.addEventListener("click", async () => {
+        if (!("BarcodeDetector" in window)) {
+            alert("เครื่องนี้ไม่รองรับ Barcode Detector API");
+            return;
+        }
 
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input, button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; }
-    button { background: #06c755; color: white; border: none; border-radius: 6px; }
-  </style>
-</head>
+        try {
+            const detector = new BarcodeDetector({ formats: ["ean_13", "code_128", "upc_a"] });
 
-<body>
-  <h2>NE Scanner</h2>
+            // เปิดกล้อง
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const video = document.createElement("video");
+            video.srcObject = stream;
+            video.play();
 
-  <label>Barcode</label>
-  <input id="barcode" placeholder="Scan barcode" readonly />
+            // overlay UI
+            document.body.appendChild(video);
+            video.style.position = "fixed";
+            video.style.top = 0;
+            video.style.left = 0;
+            video.style.width = "100%";
+            video.style.height = "100%";
+            video.style.zIndex = 9999;
 
-  <button onclick="scanBarcode()">สแกนบาร์โค้ด</button>
+            const scanLoop = setInterval(async () => {
+                try {
+                    const barcodes = await detector.detect(video);
+                    if (barcodes.length > 0) {
+                        const code = barcodes[0].rawValue;
+                        barcodeInput.value = code;
 
-  <label>Qty</label>
-  <input id="qty" placeholder="Quantity" type="number" />
+                        clearInterval(scanLoop);
+                        stream.getTracks().forEach(t => t.stop());
+                        video.remove();
 
-  <label>EXP</label>
-  <input id="exp" placeholder="เช่น 12.12.26" />
+                        alert("Scan สำเร็จ: " + code);
+                    }
+                } catch (e) {
+                    console.log("detecting…");
+                }
+            }, 200);
 
-  <button onclick="submitToN8N()">ส่งข้อมูลไป LINE</button>
+        } catch (error) {
+            console.error(error);
+            alert("เปิดกล้องไม่ได้ / ตรวจจับไม่ได้");
+        }
+    });
 
-  <script>
-    const LIFF_ID = "2008669852-4EpVRZNo"; // <<--- ของมึง
+    // --- อ่านบาร์โค้ดจากรูป ---
+    uploadBtn.addEventListener("click", () => uploadInput.click());
 
-    // 1) INITIALIZE LIFF
-    async function main() {
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-      }
-    }
-    main();
+    uploadInput.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-    // 2) เปิดกล้องสแกน QR/Barcode
-    async function scanBarcode() {
-      try {
-        const result = await liff.scanCodeV2();
-        document.getElementById("barcode").value = result.value;
-      } catch (err) {
-        alert("ไม่สามารถสแกนได้: " + err.message);
-      }
-    }
+        if (!("BarcodeDetector" in window)) {
+            alert("เครื่องนี้ไม่รองรับ Barcode Detector API");
+            return;
+        }
 
-    // 3) ส่งข้อมูลเข้า n8n
-    async function submitToN8N() {
-      const barcode = document.getElementById("barcode").value;
-      const qty = document.getElementById("qty").value;
-      const exp = document.getElementById("exp").value;
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        await img.decode();
 
-      if (!barcode || !qty || !exp) {
-        alert("กรุณากรอกข้อมูลให้ครบถ้วน");
-        return;
-      }
-
-      try {
-        await fetch("https://n8n.srv1144130.hstgr.cloud/webhook/nearly-expired", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            barcode,
-            qty,
-            exp,
-            userId: liff.getContext().userId,
-            replyToken: liff.getContext().token
-          })
-        });
-
-        alert("ส่งข้อมูลสำเร็จ! รอข้อความตอบกลับจากระบบครับ");
-      } catch (err) {
-        alert("ส่งข้อมูลไม่สำเร็จ: " + err.message);
-      }
-    }
-  </script>
-</body>
-</html>
+        const detector = new BarcodeDet
