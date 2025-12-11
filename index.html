@@ -1,58 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>NE Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
-      body { font-family: sans-serif; padding: 20px; }
-      input, button {
-        width: 100%; padding: 12px; margin-top: 10px; font-size: 16px;
-      }
-      button {
-        background: #06c755; color: white; border: none; border-radius: 8px;
-      }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      background: #06C755;
+      color: white;
+      font-weight: bold;
+      border: none;
+    }
   </style>
 </head>
+
 <body>
+  <h2>NE Scanner</h2>
 
-<h2>NE Scanner</h2>
+  <label>Barcode</label>
+  <input id="barcode" placeholder="Scan barcode" />
 
-<label>Barcode</label>
-<input id="barcode" placeholder="เช่น 8851234567890">
+  <label>Qty</label>
+  <input id="qty" placeholder="Quantity" />
 
-<label>Qty</label>
-<input id="qty" placeholder="เช่น 10">
+  <label>EXP</label>
+  <input id="exp" placeholder="12.12.26" />
 
-<label>EXP</label>
-<input id="exp" placeholder="เช่น 12.12.26">
-
-<button onclick="sendData()">ส่งข้อมูลไป LINE</button>
+  <button id="sendBtn">ส่งข้อมูลไป LINE</button>
+  <button id="scanBtn">สแกนบาร์โค้ด</button>
 
 <script>
-  async function sendData() {
-      const barcode = document.getElementById("barcode").value.trim();
-      const qty = document.getElementById("qty").value.trim();
-      const exp = document.getElementById("exp").value.trim();
-
-      if (!barcode || !qty || !exp) {
-          alert("กรุณากรอกข้อมูลให้ครบ");
-          return;
-      }
-
-      const message = `${barcode} qty ${qty} exp ${exp}`;
-
-      await liff.sendMessages([
-          { type: "text", text: message }
-      ]);
-
-      alert("ส่งข้อมูลสำเร็จ!");
-      liff.closeWindow();
-  }
+  const liffId = "2008669852-4EpVRZNo"; // <-- ใส่ LIFF ID ของมึงแล้ว
 
   async function main() {
-      await liff.init({ liffId: "2008669852-4EpVRZNo" }); 
+    await liff.init({ liffId });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    document.getElementById("sendBtn").onclick = sendToLine;
+    document.getElementById("scanBtn").onclick = scanBarcode;
   }
+
+  async function scanBarcode() {
+    try {
+      const result = await liff.scanCode();
+      document.getElementById("barcode").value = result.value;
+    } catch (err) {
+      alert("ไม่สามารถเปิดกล้องได้: " + err);
+    }
+  }
+
+  function sendToLine() {
+    const barcode = document.getElementById("barcode").value;
+    const qty = document.getElementById("qty").value;
+    const exp = document.getElementById("exp").value;
+
+    if (!barcode || !qty || !exp) {
+      alert("กรอกข้อมูลให้ครบก่อนส่งครับ");
+      return;
+    }
+
+    liff.sendMessages([
+      {
+        type: "text",
+        text: `Barcode: ${barcode}\nQty: ${qty}\nEXP: ${exp}`
+      }
+    ])
+    .then(() => {
+      alert("ส่งข้อมูลไป LINE เรียบร้อย");
+      liff.closeWindow();
+    })
+    .catch(err => alert("ส่งไม่สำเร็จ: " + err));
+  }
+
   main();
 </script>
 
